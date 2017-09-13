@@ -23,7 +23,7 @@ HEIGHT = 600
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 FPS = 30 # maximo frames por segundo
-
+SPEED = 50
 # cria o clock
 clock = pygame.time.Clock()
 
@@ -50,8 +50,8 @@ class Zone(pygame.sprite.Group):
     level_info: asteroid density, item density, score, level name
     finishing [bool]: indica se a zona pode ser deletada
     """
-    level_info = ((0.1, 0.05, 100, "very_low"),
-                  (0.2, 0.05, 200, "low"),
+    level_info = ((0.05, 0.05, 100, "very_low"),
+                  (0.05, 0.05, 200, "low"),
                   (0.3, 0.05, 300, "moderate"),
                   (0.4, 0.05, 400, "high"),
                   (0.5, 0.05, 500, "very_high"))
@@ -63,11 +63,11 @@ class Zone(pygame.sprite.Group):
         self.item_density = Zone.level_info[level][1]
         self.score = Zone.level_info[level][2]
         self.level_name = Zone.level_info[level][3]
-      ##  self.fill()
-      ##  sprite_size = self.sprites()[0].size
-      ##  pos = (0, row * dimesion[1] * sprite_size[1])        
-      ##  dim = (dimension[0] * sprite_size[0], dimension[1] * sprite_size[1])
-      ##  self.rect = Rect(pos, dim)
+        self.fill()
+        sprite_size = self.sprites()[0].size
+        pos = (0, row * self.dimension[1] * sprite_size[1])        
+        dim = (dimension[0] * sprite_size[0], dimension[1] * sprite_size[1])
+        self.rect = Rect(pos, dim)
         
     def fill(self):
         asteroid_num = int(self.asteroid_density * self.dimension[0] * self.dimension[1])
@@ -82,16 +82,18 @@ class Zone(pygame.sprite.Group):
                 self.add(Object("asteroid", pos_set.pop()))
             else:
                 self.add(Object("item", pos_set.pop(), self.level))  
-        sprite_size = self.sprites()[0].size
-        pos = (0, row * dimesion[1] * sprite_size[1])        
-        dim = (dimension[0] * sprite_size[0], dimension[1] * sprite_size[1])
-        self.rect = Rect(pos, dim)
+                
+    def update(self, deltat):
+        if self.rect.right > 0:
+            self.rect.x -= SPEED * deltat
+        super(self.__class__, self).update(deltat)
+        
         
 class BaseSprite(pygame.sprite.Sprite):
-    size = (100, 100)
-    spritesheet = {"spaceship": "image/rocket_test.png", 
-                   "asteroid": "image/asteroid_test.png", 
-                   "item": "image/item_test.png"}
+    size = (50, 50)
+    spritesheet = {"spaceship": "image/rocket_test2.png", 
+                   "asteroid": "image/asteroid_test2.png", 
+                   "item": "image/item_test2.png"}
     def __init__(self, kind, tile_pos, current_sprite):
         pygame.sprite.Sprite.__init__(self)
         self.kind = kind
@@ -99,16 +101,15 @@ class BaseSprite(pygame.sprite.Sprite):
                   tile_pos[1] * BaseSprite.size[1])
         self.rect = Rect(pos_xy, self.size)   
         self.current_sprite = current_sprite
-        self.sheet = pygame.image.load(BaseSprite.spritesheet[kind])
-        self.sprites_num = self.sheet.get_width() // self.size[0]
+        self.image = pygame.image.load(BaseSprite.spritesheet[kind])
+        self.sprites_num = self.image.get_width() // self.size[0]
     
     def draw(self, surface):
-        surface.blit(self.sheet, self.rec.topleft, 
+        surface.blit(self.image, self.rect.topleft, 
                      (self.size[0] * self.current_sprite, 0, 
                       self.size[0], self.size[1]))
   
 class Object(BaseSprite):
-    vel = 4
     def __init__(self, kind, tile_pos, current_sprite=0):
         super(self.__class__, self).__init__(kind, tile_pos, current_sprite)
         if kind == "asteroid":
@@ -116,9 +117,9 @@ class Object(BaseSprite):
             
     def update(self, deltat):
         if self.rect.right > 0:
-            self.rect.x += self.vel * deltat
-        else:
-            self.kill()
+            self.rect.x -= SPEED * deltat
+      #  else:
+      #      self.kill()
 
 class Spaceship(BaseSprite):
     def __init__(self, tile_pos, current_sprite=0):
@@ -126,9 +127,9 @@ class Spaceship(BaseSprite):
     
     def update(self, event_key):
         if event_key == K_UP and self.rect.top > 0:
-                self.rect.y -= 5
+                self.rect.y -= 20
         if event_key == K_DOWN and self.rect.bottom < HEIGHT:
-                self.rect.y += 5
+                self.rect.y += 20
             
 class Game():
     """
@@ -140,25 +141,22 @@ class Game():
     def __init__(self):
         self.game_mode = 0
         self.score = 0   
-        self.zones = deque()
+        self.zones = []
         self.spaceship = Spaceship((0, 0))
         # TODO: colocar as inicializacoes da tela e outras constantes
     
     # adiciona e remove zonas    
-    def manage_zones(self, rows=2):
-        if len(self.zones) == 0 or self.zones[-1][0].right < WIDTH:
-            zones = [Zone(row, (10, 10), row) for row in range(rows)]
-            for zone in zones:
-                zone.fill()
-            self.zones.append(zones)
-            
+    def manage_zones(self, playtime, rows=2):
+     #   if len(self.zones) == 0 or self.zones[-1][0].rect.right < WIDTH:
+        if len(self.zones) == 0 or playtime % 5 == 0:
+            self.zones.append([Zone(row, (5, 5), row) for row in range(rows)])
         if self.zones[0][0].rect.right < 0:
             self.zones.popleft()
 
     # verifica qual zona a nave esta
     def detect_zone(self):
         for zone in [row for column in self.zones[:2] for row in column]:
-            if zone.collidepoint(self.spaceship.rect.center):
+            if zone.rect.collidepoint(self.spaceship.rect.center):
                 return zone
             
     # atualiza a pontos e desenha o score
@@ -208,11 +206,8 @@ class Game():
                     log_game.close()
                     pygame.quit()
                     sys.exit()
-                ##self.spaceship.update(event.key)
-                if event.key == K_UP and self.spaceship.rect.top > 0:
-                    self.spaceship.rect.y -= 5
-                if event.key == K_DOWN and self.spaceship.rect.bottom < HEIGHT:
-                    self.spaceship.rect.y += 5
+                if event.type == KEYDOWN:   
+                    self.spaceship.update(event.key)                   
         #-----------------------------------------------------------------------
         # GERENCIA OS MODOS DE JOGO
         # 0 modo inicial; 1 preparacao para o jogo; 2 rodando jogo; 3 game over
@@ -227,9 +222,10 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
+                if playtime >= 30:
+                    self.game_mode += 1
                 playtime += deltat
-                ##self.draw_parallax()
-                self.manage_zones()
+                self.manage_zones(playtime)
                 current_zone = self.detect_zone()
                 score = 0
                 if penalty:
@@ -238,7 +234,7 @@ class Game():
                         penaltytime = 0
                         penalty = False
                 else:
-                    sprite = pygame.sprite.spritecollideany(self.spaceship, zone) 
+                    sprite = pygame.sprite.spritecollideany(self.spaceship, current_zone) 
                     if sprite:
                         if sprite.kind == "asteroid":
                             score = -current_zone.score 
@@ -248,12 +244,12 @@ class Game():
                             sprite.kill()
                             score = current_zone.score  
                 tutorial_writer.writerow([playtime, current_zone.level, score])
-                if playtime >= 30:
-                    self.game_mode += 1
-                self.spaceship.draw(surface)
-                for zone in self.zones:
-                    zone.update(deltat)
-                    zone.draw(surface)
+                for column in self.zones:
+                    for zone in column:
+                        zone.update(deltat)
+                        zone.draw(screen)
+                self.spaceship.draw(screen)
+                ##self.draw_parallax()
             pygame.display.update()
 
 if __name__ == "__main__":
