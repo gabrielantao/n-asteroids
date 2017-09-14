@@ -32,6 +32,7 @@ pygame.display.set_caption("N-asteroids")
 
 # carrega imagens e large_font
 background = pygame.image.load("image/background2.png")
+info_bar = pygame.image.load("image/infobar.png")
 
 small_font = pygame.font.Font("font/HANGAR_flat.ttf", 20)
 large_font = pygame.font.Font("font/HANGAR_flat.ttf", 40)
@@ -256,6 +257,7 @@ class Game():
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
                 self.manage_background(screen, deltat)
+                screen.blit(info_bar, (0, HEIGHT - 50))
                 self.spaceship.draw(screen)
                 for column in self.zones:
                     for zone in column:
@@ -264,10 +266,10 @@ class Game():
                 self.explosions.draw(screen)
                 self.explosions.update(deltat)
                 text = small_font.render("score: "+ str(total_score), True, WHITE)
-                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 60))
+                screen.blit(text, (WIDTH/2 + text.get_width(), HEIGHT - 30))
                 text = small_font.render("time: {}".format(160 - int(playtime)), 
                                          True, WHITE)
-                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
+                screen.blit(text, (WIDTH/2 - text.get_width(), HEIGHT - 30))
                 self.manage_zones(playtime)
                 current_zone = self.detect_zone()
                 score = 0
