@@ -32,10 +32,9 @@ pygame.display.set_caption("N-asteroids")
 
 # carrega imagens e large_font
 ##background = pygame.image.load("images/parallax.png")
-test = pygame.image.load("image/area_test.png")
 
-##large_font = pygame.font.Font("fonts/Super_Mario_World.ttf", 32)
 small_font = pygame.font.Font("font/HANGAR_flat.ttf", 20)
+large_font = pygame.font.Font("font/HANGAR_flat.ttf", 40)
 
 def change_music(new_music, loops=-1):
     pygame.mixer.music.stop()
@@ -91,7 +90,7 @@ class Zone(pygame.sprite.Group):
     #TODO: remover esse metodo (SOMENTE PARA DEBUG)
     def draw(self, surface):
         super(self.__class__, self).draw(surface)
-        pygame.draw.rect(surface, (255,0,0), self.rect,1)
+      ##  pygame.draw.rect(surface, (255,0,0), self.rect,1)
         
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
@@ -141,28 +140,60 @@ class Spaceship(pygame.sprite.Sprite):
     def update(self, event_key):
         if event_key == K_UP and self.rect.top > 0:
                 self.rect.move_ip(0, -20)
-        if event_key == K_DOWN and self.rect.bottom < HEIGHT:
+        if event_key == K_DOWN and self.rect.bottom < HEIGHT-50:
                 self.rect.move_ip(0, 20)
-            
+
+class ExplosionGroup(pygame.sprite.Group):
+    """
+    agrupa (gerencia) os sprites de explosoes
+    """
+    def __init__(self):
+        super(self.__class__, self).__init__()
+        
+    
+class Explosion(pygame.sprite.Sprite):
+    size = (50, 50)
+    def __init__(self, pos, timeframe, current_sprite=0):
+        pygame.sprite.Sprite.__init__(self)
+        self.rect = Rect(pos, self.size)  
+        self.timeframe = timeframe  #tempo por frame
+        self.current_sprite = current_sprite
+        self.time_counter = 0
+        self.sheet = pygame.image.load("image/explosion.png")
+        self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
+        self.sprites_num = self.sheet.get_width() // self.size[0]
+        self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+                        0, self.size[0], self.size[1]))
+
+    def draw(self, surface):
+        surface.blit(self.image, self.rect.topleft)
+        
+    def update(self, deltat):
+        self.time_counter += deltat
+        if self.time_counter > self.timeframe:
+            self.current_sprite += 1
+            self.time_counter = 0
+        if self.current_sprite > self.sprites_num:
+            self.kill()  #nesse caso mata o sprite, mas poderia ciclar
+                
 class Game():
     """
     0 modo contagem (5 segundos) 
     1 modo tutorial; 
-    2 modo jogo; 
-    
+    2 modo jogo;    
     """
     def __init__(self):
         self.game_mode = 0
         self.score = 0   
         self.zones = []
         self.spaceship = Spaceship((0, 0))
+      ##  self.explosions 
         # TODO: colocar as inicializacoes da tela e outras constantes
     
     # adiciona e remove zonas    
     def manage_zones(self, playtime, rows=2):
         if len(self.zones) == 0 or self.zones[-1][0].rect.right <= WIDTH:
             self.zones.append([Zone(row, (8, 8), row) for row in range(rows)])
-            print "ADICIONADO"
         if self.zones[0][0].rect.right < 0:
             self.zones.pop(0)
 
@@ -171,28 +202,12 @@ class Game():
         for zone in [row for column in self.zones[:2] for row in column]:
             if zone.rect.collidepoint(self.spaceship.rect.center):
                 return zone
-            
-    # atualiza a pontos e desenha o score
-    def update_score(self, last_state):
-        if self.mario_rect.colliderect(self.pipe_list[0][2]): #conseguiu passar pelo tubo
-            passing_gap = True
-        else: 
-            if passing_gap:
-                passing_gap = True
-                self.score += 1
-       
-    # desenha pontos
-    def draw_score(self):
-        screen.blit(score_img, (WIDTH/2  - 50, 10))
-        texto = large_font.render(str(self.score), True, WHITE)
-        screen.blit(texto, (WIDTH/2 - 20, 28))
-           
+      
     # desenha o parallax 
     def draw_parallax(self):
-        screen.blit(background, (0, 0))
+        pass
         
     # reseta parametros
-    # mostra o contador e bipes de tempo 5egundos (chamado na transicao e na e)
     def reset(self):
         pass
         
@@ -207,7 +222,8 @@ class Game():
         game_writer.writerow(["time", "risklevel", "score"])   
         playtime = 0 # tempo jogado por partida
         penalty = False # estado de penalidade 
-        penaltytime = 0 #contador de tempo da penalidade (3 segundos)
+        penaltytime = 0 # contador de tempo da penalidade (3 segundos)
+        total_score = 0
         ##change_music("Title Theme.ogg")
         while True:
             milliseconds = clock.tick(FPS)  # milisegundos passados desde ultimo frame
@@ -235,32 +251,65 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
-                if playtime >= 160:
+                if playtime >= 15:
+                    playtime = 0
                     self.game_mode += 1
                 playtime += deltat
                 self.manage_zones(playtime)
-                current_zone = self.detect_zone()
-                
                 self.spaceship.draw(screen)
                 for column in self.zones:
                     for zone in column:
                         zone.update(deltat)
                         zone.draw(screen)
-                self.spaceship.draw(screen)
-                text = small_font.render("score: "+ str(zone.rect.right), True, WHITE)
-                screen.blit(text, (WIDTH/2 - 20, HEIGHT - 60))
-                text = small_font.render("time: {}/160".format(int(playtime)), True, WHITE)
-                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
-                # OBSERVACAOO!!!!! salvar no arquivo null (ou -1) quando o level nao ficar definido
-                # quando current_zone == none
-                if current_zone == None:
-                    text = small_font.render("level NULL", True, WHITE)
-                    screen.blit(text, (WIDTH/2 - 20, HEIGHT - 10))
+                current_zone = self.detect_zone()
+                score = 0
+                if current_zone:
+                    if penalty:
+                        penaltytime += deltat
+                        log_row = [round(playtime, 4), current_zone.level, score]
+                        if penaltytime > 4:
+                            penaltytime = 0
+                            penalty = False
+                    else:
+                        sprite = pygame.sprite.spritecollideany(self.spaceship, 
+                                                                current_zone) 
+                        if sprite:
+                            sprite.kill()  #apaga o sprite dos grupos
+                            if sprite.kind == "asteroid":
+                                score = -current_zone.score 
+                                penalty = True
+                                #anima explosao
+                                # TODO: passar para o segundo sprite
+                                # TODO: executar som de explosao
+                            else: #if "item"
+                                score = current_zone.score
+                        log_row = [round(playtime, 4), current_zone.level, score]
                 else:
-                    text = small_font.render("level"  + str(current_zone.level), True, WHITE)
-                    screen.blit(text, (WIDTH/2 - 20, HEIGHT - 10))
+                    log_row = [round(playtime, 4), -1, score]
+                total_score += score
+                tutorial_writer.writerow(log_row)
+                text = small_font.render("score: "+ str(total_score), True, WHITE)
+                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 60))
+                text = small_font.render("time: {}".format(160 - int(playtime)), 
+                                         True, WHITE)
+                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
                 ##self.draw_parallax()
+                
+            #MODO : mostra pontuacao total e agradecimento
+            if self.game_mode == 1:
+                if playtime < 5:
+                    text = large_font.render("Pontuacao", True, WHITE)
+                    screen.blit(text, (WIDTH/2 - text.get_width()/2, HEIGHT/2 - 60))
+                    text = large_font.render(str(total_score), True, WHITE)
+                    screen.blit(text, (WIDTH/2 - text.get_width()/2, HEIGHT/2 - 20)) 
+                if 5 < playtime < 10:
+                    text = large_font.render("OBRIGADO!", True, WHITE)
+                    screen.blit(text, (WIDTH/2 - text.get_width()/2, HEIGHT/2 - 60))
+                if  playtime > 10:
+                    pygame.event.post(pygame.event.Event(QUIT))
+                playtime += deltat 
             pygame.display.update()
+            
 
 if __name__ == "__main__":
     game = Game()
