@@ -51,11 +51,11 @@ class Zone(pygame.sprite.Group):
     finishing [bool]: indica se a zona pode ser deletada
     """
     sprite_size = (50, 50) # TODO: remover esse atributo e talvez colocar como global
-    level_info = ((0.1, 0.05, 100, "very_low"),
-                  (0.15, 0.05, 200, "low"),
-                  (0.2, 0.05, 300, "moderate"),
-                  (0.25, 0.05, 400, "high"),
-                  (0.3, 0.05, 500, "very_high"))
+    level_info = ((0.07, 0.05, 100, "very_low"),
+                  (0.12, 0.05, 200, "low"),
+                  (0.16, 0.05, 300, "moderate"),
+                  (0.18, 0.05, 400, "high"),
+                  (0.22, 0.05, 500, "very_high"))
     def __init__(self, row, dimension, level):
         super(self.__class__, self).__init__()
         self.dimension = dimension
@@ -97,7 +97,8 @@ class Zone(pygame.sprite.Group):
         self.rect.move_ip(SPEED * deltat, 0)
         super(self.__class__, self).update(deltat)
         
-        
+# TODO: remover a classe BaseSprite e manter duas classes separadas Object e Spaceship   
+#        cada uma com seu proprio size
 class BaseSprite(pygame.sprite.Sprite):
     size = (50, 50)
     spritesheet = {"spaceship": "image/rocket_test2.png", 
@@ -109,26 +110,30 @@ class BaseSprite(pygame.sprite.Sprite):
         self.rect = Rect(pos, self.size)   
         self.current_sprite = current_sprite
         self.image = pygame.image.load(BaseSprite.spritesheet[kind])
+      #  self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.image.get_width() // self.size[0]
     
     def draw(self, surface):
-        surface.blit(self.image, self.rect.topleft) 
-                     ##(self.size[0] * self.current_sprite, 0, 
-                     ## self.size[0], self.size[1]))
-  
+        surface.blit(self.image, self.rect.topleft)
+        
 class Object(BaseSprite):
     def __init__(self, kind, pos, current_sprite=0):
         super(self.__class__, self).__init__(kind, pos, current_sprite)
         if kind == "asteroid":
             self.current_sprite = random.randint(0, self.sprites_num)
+     #   self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+       #                 0, self.size[0], self.size[1]))
             
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
 
 class Spaceship(BaseSprite):
+    size = (65, 40)
     def __init__(self, pos, current_sprite=0):
         super(self.__class__, self).__init__("spaceship", pos, current_sprite)
-    
+    #    self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+    #                    0, self.size[0], self.size[1]))
+                        
     def update(self, event_key):
         if event_key == K_UP and self.rect.top > 0:
                 self.rect.move_ip(0, -20)
@@ -231,16 +236,17 @@ class Game():
                 playtime += deltat
                 self.manage_zones(playtime)
                 current_zone = self.detect_zone()
+                
+                self.spaceship.draw(screen)
                 for column in self.zones:
                     for zone in column:
                         zone.update(deltat)
                         zone.draw(screen)
                 self.spaceship.draw(screen)
-        
-                text = small_font.render("score "+ str(zone.rect.right), True, WHITE)
+                text = small_font.render("score: "+ str(zone.rect.right), True, WHITE)
                 screen.blit(text, (WIDTH/2 - 20, HEIGHT - 60))
-                text = small_font.render("time {}/160".format(int(playtime)), True, WHITE)
-                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 35))
+                text = small_font.render("time: {}/160".format(int(playtime)), True, WHITE)
+                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
                 # OBSERVACAOO!!!!! salvar no arquivo null (ou -1) quando o level nao ficar definido
                 # quando current_zone == none
                 if current_zone == None:
