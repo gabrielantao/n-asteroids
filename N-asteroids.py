@@ -36,9 +36,9 @@ pygame.display.set_caption("N-asteroids")
 small_font = pygame.font.Font("font/HANGAR_flat.ttf", 20)
 large_font = pygame.font.Font("font/HANGAR_flat.ttf", 40)
 
-def change_music(new_music, loops=-1):
+def play_sound(sound, loops=-1):
     pygame.mixer.music.stop()
-    pygame.mixer.music.load("sound/{}".format(new_music))
+    pygame.mixer.music.load("sound/{}".format(sound))
     pygame.mixer.music.play(loops)
 
 class Zone(pygame.sprite.Group):
@@ -143,17 +143,10 @@ class Spaceship(pygame.sprite.Sprite):
         if event_key == K_DOWN and self.rect.bottom < HEIGHT-50:
                 self.rect.move_ip(0, 20)
 
-class ExplosionGroup(pygame.sprite.Group):
-    """
-    agrupa (gerencia) os sprites de explosoes
-    """
-    def __init__(self):
-        super(self.__class__, self).__init__()
-        
-    
+   
 class Explosion(pygame.sprite.Sprite):
     size = (50, 50)
-    def __init__(self, pos, timeframe, current_sprite=0):
+    def __init__(self, pos, timeframe=0.1, current_sprite=0):
         pygame.sprite.Sprite.__init__(self)
         self.rect = Rect(pos, self.size)  
         self.timeframe = timeframe  #tempo por frame
@@ -162,19 +155,21 @@ class Explosion(pygame.sprite.Sprite):
         self.sheet = pygame.image.load("image/explosion.png")
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
-        self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
-                        0, self.size[0], self.size[1]))
 
     def draw(self, surface):
         surface.blit(self.image, self.rect.topleft)
         
     def update(self, deltat):
-        self.time_counter += deltat
         if self.time_counter > self.timeframe:
             self.current_sprite += 1
             self.time_counter = 0
-        if self.current_sprite > self.sprites_num:
+            self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
+            self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+                        0, self.size[0], self.size[1]))
+        if self.current_sprite >= self.sprites_num:
             self.kill()  #nesse caso mata o sprite, mas poderia ciclar
+        self.time_counter += deltat
+        self.rect.move_ip(SPEED * deltat, 0)
                 
 class Game():
     """
@@ -186,8 +181,8 @@ class Game():
         self.game_mode = 0
         self.score = 0   
         self.zones = []
-        self.spaceship = Spaceship((0, 0))
-      ##  self.explosions 
+        self.spaceship = Spaceship((150, 0))
+        self.explosions = pygame.sprite.Group()
         # TODO: colocar as inicializacoes da tela e outras constantes
     
     # adiciona e remove zonas    
@@ -241,7 +236,7 @@ class Game():
         # GERENCIA OS MODOS DE JOGO
         # 0 modo inicial; 1 preparacao para o jogo; 2 rodando jogo; 3 game over
         #-----------------------------------------------------------------------
-            # MODO DE JOGO (NUM PAR): contador de preparacao para o jogo
+            # MODO DE JOGO (NUM PAR): contador de preparacao entre os modos jogo
           ##  if self.game_mode % 2:
           ##      if playtime < 1:
           ##          pass #animar texto contando 5 segndos
@@ -251,16 +246,14 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
-                if playtime >= 15:
-                    playtime = 0
-                    self.game_mode += 1
-                playtime += deltat
-                self.manage_zones(playtime)
                 self.spaceship.draw(screen)
                 for column in self.zones:
                     for zone in column:
                         zone.update(deltat)
                         zone.draw(screen)
+                self.explosions.draw(screen)
+                self.explosions.update(deltat)
+                self.manage_zones(playtime)
                 current_zone = self.detect_zone()
                 score = 0
                 if current_zone:
@@ -270,6 +263,7 @@ class Game():
                         if penaltytime > 4:
                             penaltytime = 0
                             penalty = False
+                            # TODO: passar para primeiro sprite
                     else:
                         sprite = pygame.sprite.spritecollideany(self.spaceship, 
                                                                 current_zone) 
@@ -278,8 +272,9 @@ class Game():
                             if sprite.kind == "asteroid":
                                 score = -current_zone.score 
                                 penalty = True
-                                #anima explosao
-                                # TODO: passar para o segundo sprite
+                                self.explosions.add(Explosion(sprite.rect.topleft))
+                                play_sound("DeathFlash.ogg", 0)
+                                # TODO: passar para o segundo sprite spaceship
                                 # TODO: executar som de explosao
                             else: #if "item"
                                 score = current_zone.score
@@ -293,6 +288,10 @@ class Game():
                 text = small_font.render("time: {}".format(160 - int(playtime)), 
                                          True, WHITE)
                 screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
+                if playtime >= 160:
+                    playtime = 0
+                    self.game_mode += 1
+                playtime += deltat
                 ##self.draw_parallax()
                 
             #MODO : mostra pontuacao total e agradecimento
