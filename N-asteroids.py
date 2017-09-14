@@ -31,7 +31,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("N-asteroids")
 
 # carrega imagens e large_font
-##background = pygame.image.load("images/parallax.png")
+background = pygame.image.load("image/background2.png")
 
 small_font = pygame.font.Font("font/HANGAR_flat.ttf", 20)
 large_font = pygame.font.Font("font/HANGAR_flat.ttf", 40)
@@ -128,20 +128,24 @@ class Spaceship(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         self.rect = Rect(pos, self.size)   
         self.current_sprite = current_sprite
-        self.sheet = pygame.image.load("image/rocket_test2.png")
+        self.sheet = pygame.image.load("image/rocket_test4.png")
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
                         0, self.size[0], self.size[1]))
     
     def draw(self, surface):
+        self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
+        self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+                        0, self.size[0], self.size[1]))
         surface.blit(self.image, self.rect.topleft)
         
     def update(self, event_key):
+        # TODO: animar movimentacao (SUAVE!)
         if event_key == K_UP and self.rect.top > 0:
-                self.rect.move_ip(0, -20)
-        if event_key == K_DOWN and self.rect.bottom < HEIGHT-50:
-                self.rect.move_ip(0, 20)
+                self.rect.move_ip(0, -50)
+        if event_key == K_DOWN and self.rect.bottom <= HEIGHT-50:
+                self.rect.move_ip(0, 50)
 
    
 class Explosion(pygame.sprite.Sprite):
@@ -183,6 +187,7 @@ class Game():
         self.zones = []
         self.spaceship = Spaceship((150, 0))
         self.explosions = pygame.sprite.Group()
+        self.background_pos = 0
         # TODO: colocar as inicializacoes da tela e outras constantes
     
     # adiciona e remove zonas    
@@ -198,9 +203,13 @@ class Game():
             if zone.rect.collidepoint(self.spaceship.rect.center):
                 return zone
       
-    # desenha o parallax 
-    def draw_parallax(self):
-        pass
+    # desenha o fundo
+    def manage_background(self, surface, deltat):
+        self.background_pos += (SPEED/2) * deltat
+        if self.background_pos < - WIDTH:
+            self.background_pos = 0
+        surface.blit(background, (self.background_pos, 0))
+        surface.blit(background, (WIDTH + self.background_pos, 0))
         
     # reseta parametros
     def reset(self):
@@ -246,6 +255,7 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
+                self.manage_background(screen, deltat)
                 self.spaceship.draw(screen)
                 for column in self.zones:
                     for zone in column:
@@ -253,6 +263,11 @@ class Game():
                         zone.draw(screen)
                 self.explosions.draw(screen)
                 self.explosions.update(deltat)
+                text = small_font.render("score: "+ str(total_score), True, WHITE)
+                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 60))
+                text = small_font.render("time: {}".format(160 - int(playtime)), 
+                                         True, WHITE)
+                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
                 self.manage_zones(playtime)
                 current_zone = self.detect_zone()
                 score = 0
@@ -263,7 +278,7 @@ class Game():
                         if penaltytime > 4:
                             penaltytime = 0
                             penalty = False
-                            # TODO: passar para primeiro sprite
+                            self.spaceship.current_sprite = 0
                     else:
                         sprite = pygame.sprite.spritecollideany(self.spaceship, 
                                                                 current_zone) 
@@ -274,8 +289,7 @@ class Game():
                                 penalty = True
                                 self.explosions.add(Explosion(sprite.rect.topleft))
                                 play_sound("DeathFlash.ogg", 0)
-                                # TODO: passar para o segundo sprite spaceship
-                                # TODO: executar som de explosao
+                                self.spaceship.current_sprite = 1
                             else: #if "item"
                                 score = current_zone.score
                         log_row = [round(playtime, 4), current_zone.level, score]
@@ -283,16 +297,11 @@ class Game():
                     log_row = [round(playtime, 4), -1, score]
                 total_score += score
                 tutorial_writer.writerow(log_row)
-                text = small_font.render("score: "+ str(total_score), True, WHITE)
-                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 60))
-                text = small_font.render("time: {}".format(160 - int(playtime)), 
-                                         True, WHITE)
-                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 30))
                 if playtime >= 160:
                     playtime = 0
                     self.game_mode += 1
                 playtime += deltat
-                ##self.draw_parallax()
+                
                 
             #MODO : mostra pontuacao total e agradecimento
             if self.game_mode == 1:
