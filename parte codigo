@@ -1,0 +1,17 @@
+score = 0
+                if penalty:
+                    penaltytime += deltat
+                    if penaltytime > 3:
+                        penaltytime = 0
+                        penalty = False
+                else:
+                    sprite = pygame.sprite.spritecollideany(self.spaceship, current_zone) 
+                    if sprite:
+                        if sprite.kind == "asteroid":
+                            score = -current_zone.score 
+                            penalty = True
+                            # TODO: executar som de explosao
+                        else: #if "item"
+                            sprite.kill()
+                            score = current_zone.score  
+                tutorial_writer.writerow([playtime, current_zone.level, score])

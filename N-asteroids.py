@@ -23,7 +23,7 @@ HEIGHT = 600
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 FPS = 30 # maximo frames por segundo
-SPEED = 50
+SPEED = -100
 # cria o clock
 clock = pygame.time.Clock()
 
@@ -33,9 +33,10 @@ pygame.display.set_caption("N-asteroids")
 
 # carrega imagens e large_font
 ##background = pygame.image.load("images/parallax.png")
+test = pygame.image.load("image/area_test.png")
 
 ##large_font = pygame.font.Font("fonts/Super_Mario_World.ttf", 32)
-##small_font = pygame.font.Font("fonts/Super_Mario_World.ttf", 20)
+small_font = pygame.font.Font("font/HANGAR_flat.ttf", 20)
 
 def change_music(new_music, loops=-1):
     pygame.mixer.music.stop()
@@ -50,8 +51,8 @@ class Zone(pygame.sprite.Group):
     level_info: asteroid density, item density, score, level name
     finishing [bool]: indica se a zona pode ser deletada
     """
-    level_info = ((0.05, 0.05, 100, "very_low"),
-                  (0.05, 0.05, 200, "low"),
+    level_info = ((0.1, 0.1, 100, "very_low"),
+                  (0.2, 0.2, 200, "low"),
                   (0.3, 0.05, 300, "moderate"),
                   (0.4, 0.05, 400, "high"),
                   (0.5, 0.05, 500, "very_high"))
@@ -65,7 +66,7 @@ class Zone(pygame.sprite.Group):
         self.level_name = Zone.level_info[level][3]
         self.fill()
         sprite_size = self.sprites()[0].size
-        pos = (0, row * self.dimension[1] * sprite_size[1])        
+        pos = (WIDTH, row * self.dimension[1] * sprite_size[1])        
         dim = (dimension[0] * sprite_size[0], dimension[1] * sprite_size[1])
         self.rect = Rect(pos, dim)
         
@@ -73,31 +74,37 @@ class Zone(pygame.sprite.Group):
         asteroid_num = int(self.asteroid_density * self.dimension[0] * self.dimension[1])
         item_num = int(self.item_density * self.dimension[0] * self.dimension[1])
         assert item_num > 0, "item_num == 0. Redefinir densidade de itens."
+        print "level: " + str(self.level) + "; asteroids "+ str(asteroid_num) +"; item: " +str(item_num)
         pos_set = set()        
-        while len(pos_set) < (asteroid_num + item_num):
+        while len(pos_set) < asteroid_num + item_num:
             pos_set.add((random.randint(0, self.dimension[0]),
                          random.randint(0, self.dimension[1])))
+       ## print  pos_set
         while len(pos_set):
             if len(pos_set) > item_num:
                 self.add(Object("asteroid", pos_set.pop()))
             else:
                 self.add(Object("item", pos_set.pop(), self.level))  
-                
+    
+    #TODO: remover esse metodo (SOMENTE PARA DEBUG)
+    def draw(self, surface):
+        super(self.__class__, self).draw(surface)
+        pygame.draw.rect(surface, (255,0,0), self.rect,1)
+        
     def update(self, deltat):
-        if self.rect.right > 0:
-            self.rect.x -= SPEED * deltat
+        self.rect.move_ip(SPEED * deltat, 0)
         super(self.__class__, self).update(deltat)
         
         
 class BaseSprite(pygame.sprite.Sprite):
     size = (50, 50)
     spritesheet = {"spaceship": "image/rocket_test2.png", 
-                   "asteroid": "image/asteroid_test2.png", 
+                   "asteroid": "image/asteroid_test3.png", 
                    "item": "image/item_test2.png"}
     def __init__(self, kind, tile_pos, current_sprite):
         pygame.sprite.Sprite.__init__(self)
         self.kind = kind
-        pos_xy = (tile_pos[0] * BaseSprite.size[0], 
+        pos_xy = ( tile_pos[0] * BaseSprite.size[0], 
                   tile_pos[1] * BaseSprite.size[1])
         self.rect = Rect(pos_xy, self.size)   
         self.current_sprite = current_sprite
@@ -116,10 +123,7 @@ class Object(BaseSprite):
             self.current_sprite = random.randint(0, self.sprites_num)
             
     def update(self, deltat):
-        if self.rect.right > 0:
-            self.rect.x -= SPEED * deltat
-      #  else:
-      #      self.kill()
+        self.rect.move_ip(SPEED * deltat, 0)
 
 class Spaceship(BaseSprite):
     def __init__(self, tile_pos, current_sprite=0):
@@ -127,9 +131,9 @@ class Spaceship(BaseSprite):
     
     def update(self, event_key):
         if event_key == K_UP and self.rect.top > 0:
-                self.rect.y -= 20
+                self.rect.move_ip(0, -20)
         if event_key == K_DOWN and self.rect.bottom < HEIGHT:
-                self.rect.y += 20
+                self.rect.move_ip(0, 20)
             
 class Game():
     """
@@ -147,11 +151,12 @@ class Game():
     
     # adiciona e remove zonas    
     def manage_zones(self, playtime, rows=2):
-     #   if len(self.zones) == 0 or self.zones[-1][0].rect.right < WIDTH:
-        if len(self.zones) == 0 or playtime % 5 == 0:
-            self.zones.append([Zone(row, (5, 5), row) for row in range(rows)])
+        if len(self.zones) == 0 or self.zones[-1][0].rect.right < WIDTH:
+            self.zones.append([Zone(row, (6, 6), row) for row in range(rows)])
+            print "ADICIONADO"
         if self.zones[0][0].rect.right < 0:
-            self.zones.popleft()
+            self.zones.pop(0)
+            print "APAGADO"
 
     # verifica qual zona a nave esta
     def detect_zone(self):
@@ -222,33 +227,29 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
-                if playtime >= 30:
+                if playtime >= 60:
                     self.game_mode += 1
                 playtime += deltat
                 self.manage_zones(playtime)
                 current_zone = self.detect_zone()
-                score = 0
-                if penalty:
-                    penaltytime += deltat
-                    if penaltytime > 3:
-                        penaltytime = 0
-                        penalty = False
-                else:
-                    sprite = pygame.sprite.spritecollideany(self.spaceship, current_zone) 
-                    if sprite:
-                        if sprite.kind == "asteroid":
-                            score = -current_zone.score 
-                            penalty = True
-                            # TODO: executar som de explosao
-                        else: #if "item"
-                            sprite.kill()
-                            score = current_zone.score  
-                tutorial_writer.writerow([playtime, current_zone.level, score])
                 for column in self.zones:
                     for zone in column:
                         zone.update(deltat)
                         zone.draw(screen)
                 self.spaceship.draw(screen)
+        
+                text = small_font.render("zonex "+ str(zone.rect.right), True, WHITE)
+                screen.blit(text, (WIDTH/2 - 20, HEIGHT - 60))
+                text = small_font.render("time " + str(playtime), True, WHITE)
+                screen.blit(text, (WIDTH/2 - 20, HEIGHT - 35))
+                # OBSERVACAOO!!!!! salvar no arquivo null (ou -1) quando o level nao ficar definido
+                # quando current_zone == none
+                if current_zone == None:
+                    text = small_font.render("level NULL", True, WHITE)
+                    screen.blit(text, (WIDTH/2 - 20, HEIGHT - 10))
+                else:
+                    text = small_font.render("level"  + str(current_zone.level), True, WHITE)
+                    screen.blit(text, (WIDTH/2 - 20, HEIGHT - 10))
                 ##self.draw_parallax()
             pygame.display.update()
 
