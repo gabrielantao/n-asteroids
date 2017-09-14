@@ -13,17 +13,16 @@ import sys
 import random
 import csv
 import datetime
-from collections import deque
 import pygame
 from pygame.locals import *
 pygame.init()
 
-WIDTH = 1000
-HEIGHT = 600
+WIDTH = 1200
+HEIGHT = 850
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 FPS = 30 # maximo frames por segundo
-SPEED = -100
+SPEED = -150
 # cria o clock
 clock = pygame.time.Clock()
 
@@ -51,11 +50,12 @@ class Zone(pygame.sprite.Group):
     level_info: asteroid density, item density, score, level name
     finishing [bool]: indica se a zona pode ser deletada
     """
-    level_info = ((0.1, 0.1, 100, "very_low"),
-                  (0.2, 0.2, 200, "low"),
-                  (0.3, 0.05, 300, "moderate"),
-                  (0.4, 0.05, 400, "high"),
-                  (0.5, 0.05, 500, "very_high"))
+    sprite_size = (50, 50) # TODO: remover esse atributo e talvez colocar como global
+    level_info = ((0.1, 0.05, 100, "very_low"),
+                  (0.15, 0.05, 200, "low"),
+                  (0.2, 0.05, 300, "moderate"),
+                  (0.25, 0.05, 400, "high"),
+                  (0.3, 0.05, 500, "very_high"))
     def __init__(self, row, dimension, level):
         super(self.__class__, self).__init__()
         self.dimension = dimension
@@ -64,27 +64,29 @@ class Zone(pygame.sprite.Group):
         self.item_density = Zone.level_info[level][1]
         self.score = Zone.level_info[level][2]
         self.level_name = Zone.level_info[level][3]
-        self.fill()
-        sprite_size = self.sprites()[0].size
-        pos = (WIDTH, row * self.dimension[1] * sprite_size[1])        
-        dim = (dimension[0] * sprite_size[0], dimension[1] * sprite_size[1])
+        pos = (WIDTH, row * self.dimension[1] * self.sprite_size[1])        
+        dim = (dimension[0] * self.sprite_size[0], dimension[1] * self.sprite_size[1])
         self.rect = Rect(pos, dim)
+        self.fill()
         
     def fill(self):
         asteroid_num = int(self.asteroid_density * self.dimension[0] * self.dimension[1])
         item_num = int(self.item_density * self.dimension[0] * self.dimension[1])
         assert item_num > 0, "item_num == 0. Redefinir densidade de itens."
-        print "level: " + str(self.level) + "; asteroids "+ str(asteroid_num) +"; item: " +str(item_num)
         pos_set = set()        
         while len(pos_set) < asteroid_num + item_num:
-            pos_set.add((random.randint(0, self.dimension[0]),
-                         random.randint(0, self.dimension[1])))
-       ## print  pos_set
-        while len(pos_set):
-            if len(pos_set) > item_num:
-                self.add(Object("asteroid", pos_set.pop()))
-            else:
-                self.add(Object("item", pos_set.pop(), self.level))  
+            pos_set.add((random.randint(0, self.dimension[0] - 1),
+                         random.randint(0, self.dimension[1] - 1)))
+        for i in range(asteroid_num):
+            tile_pos = pos_set.pop()
+            pos = (self.rect.x + tile_pos[0] * self.sprite_size[0],
+                   self.rect.y + tile_pos[1] * self.sprite_size[1])
+            self.add(Object("asteroid", pos))
+        for i in range(item_num):
+            tile_pos = pos_set.pop()
+            pos = (self.rect.x + tile_pos[0] * self.sprite_size[0],
+                   self.rect.y + tile_pos[1] * self.sprite_size[1])
+            self.add(Object("item", pos, self.level))  
     
     #TODO: remover esse metodo (SOMENTE PARA DEBUG)
     def draw(self, surface):
@@ -101,24 +103,22 @@ class BaseSprite(pygame.sprite.Sprite):
     spritesheet = {"spaceship": "image/rocket_test2.png", 
                    "asteroid": "image/asteroid_test3.png", 
                    "item": "image/item_test2.png"}
-    def __init__(self, kind, tile_pos, current_sprite):
+    def __init__(self, kind, pos, current_sprite):
         pygame.sprite.Sprite.__init__(self)
         self.kind = kind
-        pos_xy = ( tile_pos[0] * BaseSprite.size[0], 
-                  tile_pos[1] * BaseSprite.size[1])
-        self.rect = Rect(pos_xy, self.size)   
+        self.rect = Rect(pos, self.size)   
         self.current_sprite = current_sprite
         self.image = pygame.image.load(BaseSprite.spritesheet[kind])
         self.sprites_num = self.image.get_width() // self.size[0]
     
     def draw(self, surface):
-        surface.blit(self.image, self.rect.topleft, 
-                     (self.size[0] * self.current_sprite, 0, 
-                      self.size[0], self.size[1]))
+        surface.blit(self.image, self.rect.topleft) 
+                     ##(self.size[0] * self.current_sprite, 0, 
+                     ## self.size[0], self.size[1]))
   
 class Object(BaseSprite):
-    def __init__(self, kind, tile_pos, current_sprite=0):
-        super(self.__class__, self).__init__(kind, tile_pos, current_sprite)
+    def __init__(self, kind, pos, current_sprite=0):
+        super(self.__class__, self).__init__(kind, pos, current_sprite)
         if kind == "asteroid":
             self.current_sprite = random.randint(0, self.sprites_num)
             
@@ -126,8 +126,8 @@ class Object(BaseSprite):
         self.rect.move_ip(SPEED * deltat, 0)
 
 class Spaceship(BaseSprite):
-    def __init__(self, tile_pos, current_sprite=0):
-        super(self.__class__, self).__init__("spaceship", tile_pos, current_sprite)
+    def __init__(self, pos, current_sprite=0):
+        super(self.__class__, self).__init__("spaceship", pos, current_sprite)
     
     def update(self, event_key):
         if event_key == K_UP and self.rect.top > 0:
@@ -151,12 +151,11 @@ class Game():
     
     # adiciona e remove zonas    
     def manage_zones(self, playtime, rows=2):
-        if len(self.zones) == 0 or self.zones[-1][0].rect.right < WIDTH:
-            self.zones.append([Zone(row, (6, 6), row) for row in range(rows)])
+        if len(self.zones) == 0 or self.zones[-1][0].rect.right <= WIDTH:
+            self.zones.append([Zone(row, (8, 8), row) for row in range(rows)])
             print "ADICIONADO"
         if self.zones[0][0].rect.right < 0:
             self.zones.pop(0)
-            print "APAGADO"
 
     # verifica qual zona a nave esta
     def detect_zone(self):
@@ -227,7 +226,7 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 0:
-                if playtime >= 60:
+                if playtime >= 160:
                     self.game_mode += 1
                 playtime += deltat
                 self.manage_zones(playtime)
@@ -238,10 +237,10 @@ class Game():
                         zone.draw(screen)
                 self.spaceship.draw(screen)
         
-                text = small_font.render("zonex "+ str(zone.rect.right), True, WHITE)
+                text = small_font.render("score "+ str(zone.rect.right), True, WHITE)
                 screen.blit(text, (WIDTH/2 - 20, HEIGHT - 60))
-                text = small_font.render("time " + str(playtime), True, WHITE)
-                screen.blit(text, (WIDTH/2 - 20, HEIGHT - 35))
+                text = small_font.render("time {}/160".format(int(playtime)), True, WHITE)
+                screen.blit(text, (WIDTH/2 - 50, HEIGHT - 35))
                 # OBSERVACAOO!!!!! salvar no arquivo null (ou -1) quando o level nao ficar definido
                 # quando current_zone == none
                 if current_zone == None:
