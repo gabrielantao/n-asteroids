@@ -96,44 +96,48 @@ class Zone(pygame.sprite.Group):
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
         super(self.__class__, self).update(deltat)
+ 
         
-# TODO: remover a classe BaseSprite e manter duas classes separadas Object e Spaceship   
-#        cada uma com seu proprio size
-class BaseSprite(pygame.sprite.Sprite):
+class Object(pygame.sprite.Sprite):
     size = (50, 50)
-    spritesheet = {"spaceship": "image/rocket_test2.png", 
-                   "asteroid": "image/asteroid_test3.png", 
-                   "item": "image/item_test2.png"}
-    def __init__(self, kind, pos, current_sprite):
+    spritesheet = {"asteroid": "image/asteroid_sheet.png", 
+                   "item": "image/item_sheet.png"}
+    def __init__(self, kind, pos, current_sprite=0):
         pygame.sprite.Sprite.__init__(self)
         self.kind = kind
         self.rect = Rect(pos, self.size)   
-        self.current_sprite = current_sprite
-        self.image = pygame.image.load(BaseSprite.spritesheet[kind])
-      #  self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
-        self.sprites_num = self.image.get_width() // self.size[0]
+        self.sheet = pygame.image.load(self.spritesheet[kind])
+        self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
+        self.sprites_num = self.sheet.get_width() // self.size[0]
+        if kind == "asteroid":
+            self.current_sprite = random.randint(0, self.sprites_num)
+        else:
+            self.current_sprite = current_sprite
+        self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+                        0, self.size[0], self.size[1]))
     
     def draw(self, surface):
         surface.blit(self.image, self.rect.topleft)
         
-class Object(BaseSprite):
-    def __init__(self, kind, pos, current_sprite=0):
-        super(self.__class__, self).__init__(kind, pos, current_sprite)
-        if kind == "asteroid":
-            self.current_sprite = random.randint(0, self.sprites_num)
-     #   self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
-       #                 0, self.size[0], self.size[1]))
-            
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
 
-class Spaceship(BaseSprite):
+
+class Spaceship(pygame.sprite.Sprite):
     size = (65, 40)
     def __init__(self, pos, current_sprite=0):
-        super(self.__class__, self).__init__("spaceship", pos, current_sprite)
-    #    self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
-    #                    0, self.size[0], self.size[1]))
-                        
+        pygame.sprite.Sprite.__init__(self)
+        self.rect = Rect(pos, self.size)   
+        self.current_sprite = current_sprite
+        self.sheet = pygame.image.load("image/rocket_test2.png")
+        self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
+        self.sprites_num = self.sheet.get_width() // self.size[0]
+        self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
+                        0, self.size[0], self.size[1]))
+    
+    def draw(self, surface):
+        surface.blit(self.image, self.rect.topleft)
+        
     def update(self, event_key):
         if event_key == K_UP and self.rect.top > 0:
                 self.rect.move_ip(0, -20)
