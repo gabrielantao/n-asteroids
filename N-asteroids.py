@@ -90,12 +90,13 @@ class Zone(pygame.sprite.Group):
             self.add(Object("item", pos, self.level))  
     
     #TODO: remover esse metodo (SOMENTE PARA DEBUG)
-    def draw(self, surface):
-       ## pygame.draw.rect(surface, (255,0,0), self.rect,1)
+    def draw(self, surface, debug=False):
        ## super(self.__class__, self).draw(surface)
         for sprite in self.sprites():
-            sprite.draw(surface)
-        
+            sprite.draw(surface, debug)
+        if debug:
+            pygame.draw.rect(surface, (255,0,0), self.rect, 1)
+            
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
         super(self.__class__, self).update(deltat)
@@ -118,10 +119,12 @@ class Object(pygame.sprite.Sprite):
             self.current_sprite = current_sprite
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
                         0, self.size[0], self.size[1]))
-    
-    def draw(self, surface):
+        self.radius = 28
+        
+    def draw(self, surface, debug=False):
         surface.blit(self.image, self.rect.topleft)
-        pygame.draw.circle(surface, (0,255,255), self.rect.center, 25, 1)
+        if debug:
+            pygame.draw.circle(surface, (255,0,255), self.rect.center, self.radius, 1)
         
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
@@ -136,25 +139,26 @@ class Spaceship(pygame.sprite.Sprite):
         self.sheet = pygame.image.load("image/rocket_test6.png")
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
-        print self.sheet.get_width(),self.size[0] #self.sprites_num
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
                         0, self.size[0], self.size[1]))
-        self.destiny = pos[1]
+        self.radius = 20 #raio para detecacao de coliisao
+        self.destiny = self.rect.centery
         self.set_move_func(0, 0)
         
     def set_move_func(self, t0, increment):
-        self.destiny += increment * 25
+        self.destiny += increment * 50
         self.move = lambda t: self.rect.centery + \
                               int((self.destiny-self.rect.centery) * \
-                                  (1-round(math.exp(-5*(t-t0)), 2)))   
+                                  (1.0-round(math.exp(-4*(t-t0)), 1)))   
         
-    def draw(self, surface):
+    def draw(self, surface, debug=False):
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
                         0, self.size[0], self.size[1]))
         surface.blit(self.image, self.rect.topleft)
-        pygame.draw.circle(surface, (0,255,0), self.rect.center, 18, 1)
-        
+        if debug:
+            pygame.draw.circle(surface, (0,255,0), self.rect.center, self.radius, 1)
+    
     def update(self, playtime):
         self.rect.centery = self.move(playtime)
         
@@ -196,16 +200,18 @@ class Game():
         self.game_mode = 0
         self.score = 0   
         self.zones = []
-        self.spaceship = Spaceship((150, 25*10))
-     ###   self.set_move
+        self.spaceship = Spaceship((150, 10))
         self.explosions = pygame.sprite.Group()
         self.background_pos = 0
+        self.zone_dim = (8, 8)
+        self.rows = 2
         # TODO: colocar as inicializacoes da tela e outras constantes
     
     # adiciona e remove zonas    
-    def manage_zones(self, playtime, rows=2):
+    def manage_zones(self, playtime):
+        rows = self.rows
         if len(self.zones) == 0 or self.zones[-1][0].rect.right <= WIDTH:
-            self.zones.append([Zone(row, (8, 8), row) for row in range(rows)])
+            self.zones.append([Zone(row, self.zone_dim, row) for row in range(rows)])
         if self.zones[0][0].rect.right < 0:
             self.zones.pop(0)
 
@@ -222,12 +228,18 @@ class Game():
             self.background_pos = 0
         surface.blit(background, (self.background_pos, 0))
         surface.blit(background, (WIDTH + self.background_pos, 0))
-        
+    
+    # detecta colisao por regioes circulares
+    def spaceship_collision(self, current_zone):
+        for sprite in current_zone:
+            if pygame.sprite.collide_circle(self.spaceship, sprite):
+                return sprite
+                
     # reseta parametros
     def reset(self):
         pass
         
-    def start(self):
+    def start(self, DEBUG=False):
         directory = os.path.join("experiments",
                             "{:%Y-%b-%d %H-%M-%S}".format(datetime.datetime.now()))
         os.mkdir(directory)
@@ -252,10 +264,12 @@ class Game():
                     log_game.close()
                     pygame.quit()
                     sys.exit()
-                if event.type == KEYDOWN:   
-                    if event.key == K_UP:
+                if event.type == KEYDOWN:
+                    ship_tile = int(self.spaceship.rect.centery/50) 
+                    #self.rows*self.zone_dim[1]-1:
+                    if event.key == K_UP and ship_tile > 0:
                         self.spaceship.set_move_func(playtime, -1)
-                    if event.key == K_DOWN:
+                    if event.key == K_DOWN and ship_tile < self.rows*self.zone_dim[1]-1:
                         self.spaceship.set_move_func(playtime, 1)
                                       
         #-----------------------------------------------------------------------
@@ -274,12 +288,12 @@ class Game():
             if self.game_mode == 0:
                 self.manage_background(screen, deltat)
                 screen.blit(info_bar, (0, HEIGHT - 50))
-                self.spaceship.draw(screen)
+                self.spaceship.draw(screen, DEBUG)
                 self.spaceship.update(playtime)
                 for column in self.zones:
                     for zone in column:
                         zone.update(deltat)
-                        zone.draw(screen)
+                        zone.draw(screen, DEBUG)
                 self.explosions.draw(screen)
                 self.explosions.update(deltat)
                 text = small_font.render("score: "+ str(total_score), True, WHITE)
@@ -299,8 +313,7 @@ class Game():
                             penalty = False
                             self.spaceship.current_sprite = 0
                     else:
-                        sprite = pygame.sprite.spritecollideany(self.spaceship, 
-                                                                current_zone) 
+                        sprite = self.spaceship_collision(current_zone) 
                         if sprite:
                             sprite.kill()  #apaga o sprite dos grupos
                             if sprite.kind == "asteroid":
@@ -339,4 +352,4 @@ class Game():
 
 if __name__ == "__main__":
     game = Game()
-    game.start()
+    game.start(True)
