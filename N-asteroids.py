@@ -11,6 +11,7 @@
 
 import sys
 import random
+import math
 import csv
 import datetime
 import pygame
@@ -75,8 +76,8 @@ class Zone(pygame.sprite.Group):
         assert item_num > 0, "item_num == 0. Redefinir densidade de itens."
         pos_set = set()        
         while len(pos_set) < asteroid_num + item_num:
-            pos_set.add((random.randint(0, self.dimension[0] - 1),
-                         random.randint(0, self.dimension[1] - 1)))
+            pos_set.add((random.randrange(0, self.dimension[0]),
+                         random.randrange(0, self.dimension[1])))
         for i in range(asteroid_num):
             tile_pos = pos_set.pop()
             pos = (self.rect.x + tile_pos[0] * self.sprite_size[0],
@@ -90,8 +91,10 @@ class Zone(pygame.sprite.Group):
     
     #TODO: remover esse metodo (SOMENTE PARA DEBUG)
     def draw(self, surface):
-        super(self.__class__, self).draw(surface)
-      ##  pygame.draw.rect(surface, (255,0,0), self.rect,1)
+       ## pygame.draw.rect(surface, (255,0,0), self.rect,1)
+       ## super(self.__class__, self).draw(surface)
+        for sprite in self.sprites():
+            sprite.draw(surface)
         
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
@@ -110,7 +113,7 @@ class Object(pygame.sprite.Sprite):
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
         if kind == "asteroid":
-            self.current_sprite = random.randint(0, self.sprites_num)
+            self.current_sprite = random.randrange(0, self.sprites_num)
         else:
             self.current_sprite = current_sprite
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
@@ -118,36 +121,43 @@ class Object(pygame.sprite.Sprite):
     
     def draw(self, surface):
         surface.blit(self.image, self.rect.topleft)
+        pygame.draw.circle(surface, (0,255,255), self.rect.center, 25, 1)
         
     def update(self, deltat):
         self.rect.move_ip(SPEED * deltat, 0)
 
 
 class Spaceship(pygame.sprite.Sprite):
-    size = (65, 40)
+    size = (49, 30)
     def __init__(self, pos, current_sprite=0):
         pygame.sprite.Sprite.__init__(self)
         self.rect = Rect(pos, self.size)   
         self.current_sprite = current_sprite
-        self.sheet = pygame.image.load("image/rocket_test4.png")
+        self.sheet = pygame.image.load("image/rocket_test6.png")
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
+        print self.sheet.get_width(),self.size[0] #self.sprites_num
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
                         0, self.size[0], self.size[1]))
-    
+        self.destiny = pos[1]
+        self.set_move_func(0, 0)
+        
+    def set_move_func(self, t0, increment):
+        self.destiny += increment * 25
+        self.move = lambda t: self.rect.centery + \
+                              int((self.destiny-self.rect.centery) * \
+                                  (1-round(math.exp(-5*(t-t0)), 2)))   
+        
     def draw(self, surface):
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
                         0, self.size[0], self.size[1]))
         surface.blit(self.image, self.rect.topleft)
+        pygame.draw.circle(surface, (0,255,0), self.rect.center, 18, 1)
         
-    def update(self, event_key):
-        # TODO: animar movimentacao (SUAVE!)
-        if event_key == K_UP and self.rect.top > 0:
-                self.rect.move_ip(0, -50)
-        if event_key == K_DOWN and self.rect.bottom <= HEIGHT-50:
-                self.rect.move_ip(0, 50)
-
+    def update(self, playtime):
+        self.rect.centery = self.move(playtime)
+        
    
 class Explosion(pygame.sprite.Sprite):
     size = (50, 50)
@@ -186,7 +196,8 @@ class Game():
         self.game_mode = 0
         self.score = 0   
         self.zones = []
-        self.spaceship = Spaceship((150, 0))
+        self.spaceship = Spaceship((150, 25*10))
+     ###   self.set_move
         self.explosions = pygame.sprite.Group()
         self.background_pos = 0
         # TODO: colocar as inicializacoes da tela e outras constantes
@@ -217,7 +228,8 @@ class Game():
         pass
         
     def start(self):
-        directory = "experiments/{:%Y-%b-%d %H:%M:%S}".format(datetime.datetime.now())
+        directory = os.path.join("experiments",
+                            "{:%Y-%b-%d %H-%M-%S}".format(datetime.datetime.now()))
         os.mkdir(directory)
         log_tutorial = open("{}/tutorial.csv".format(directory), "w")
         tutorial_writer = csv.writer(log_tutorial)
@@ -241,7 +253,11 @@ class Game():
                     pygame.quit()
                     sys.exit()
                 if event.type == KEYDOWN:   
-                    self.spaceship.update(event.key)                   
+                    if event.key == K_UP:
+                        self.spaceship.set_move_func(playtime, -1)
+                    if event.key == K_DOWN:
+                        self.spaceship.set_move_func(playtime, 1)
+                                      
         #-----------------------------------------------------------------------
         # GERENCIA OS MODOS DE JOGO
         # 0 modo inicial; 1 preparacao para o jogo; 2 rodando jogo; 3 game over
@@ -259,6 +275,7 @@ class Game():
                 self.manage_background(screen, deltat)
                 screen.blit(info_bar, (0, HEIGHT - 50))
                 self.spaceship.draw(screen)
+                self.spaceship.update(playtime)
                 for column in self.zones:
                     for zone in column:
                         zone.update(deltat)
@@ -303,7 +320,6 @@ class Game():
                     playtime = 0
                     self.game_mode += 1
                 playtime += deltat
-                
                 
             #MODO : mostra pontuacao total e agradecimento
             if self.game_mode == 1:
