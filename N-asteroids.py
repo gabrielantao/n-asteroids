@@ -22,8 +22,8 @@ WIDTH = 1200
 HEIGHT = 850
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-FPS = 30 # maximo frames por segundo
-SPEED = -150
+FPS = 40 # maximo frames por segundo
+SPEED = -200
 # cria o clock
 clock = pygame.time.Clock()
 
@@ -105,7 +105,7 @@ class Zone(pygame.sprite.Group):
 class Object(pygame.sprite.Sprite):
     size = (50, 50)
     spritesheet = {"asteroid": "image/asteroid_sheet.png", 
-                   "item": "image/item_sheet.png"}
+                   "item": "image/item_sheet2.png"}
     def __init__(self, kind, pos, current_sprite=0):
         pygame.sprite.Sprite.__init__(self)
         self.kind = kind
