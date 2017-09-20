@@ -29,13 +29,12 @@ clock = pygame.time.Clock()
 
 # inicializa screen
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("N-asteroids")
+pygame.display.set_caption("N-asteroids (VINTAGE)")
 
 # carrega imagens e large_font
-logo = pygame.image.load("image/logo.png")
+logo = pygame.image.load("image/logo_vintage.png")
 background = pygame.image.load("image/background.png")
-info_bar = pygame.image.load("image/infobar.png")
-
+info_bar = pygame.image.load("image/infobar_vintage.png")
 
 small_font = pygame.font.Font("font/HANGAR_flat.ttf", 20)
 large_font = pygame.font.Font("font/HANGAR_flat.ttf", 40)
@@ -107,8 +106,8 @@ class Zone(pygame.sprite.Group):
         
 class Object(pygame.sprite.Sprite):
     size = (50, 50)
-    spritesheet = {"asteroid": "image/asteroids.png", 
-                   "item": "image/items.png"}
+    spritesheet = {"asteroid": "image/asteroids2_vintage.png", 
+                   "item": "image/items4_vintage.png"}
     def __init__(self, kind, pos, current_sprite=0):
         pygame.sprite.Sprite.__init__(self)
         self.kind = kind
@@ -134,12 +133,12 @@ class Object(pygame.sprite.Sprite):
 
 
 class Spaceship(pygame.sprite.Sprite):
-    size = (45, 30)
+    size = (50, 30)
     def __init__(self, pos, current_sprite=0):
         pygame.sprite.Sprite.__init__(self)
         self.rect = Rect(pos, self.size)   
         self.current_sprite = current_sprite
-        self.sheet = pygame.image.load("image/ship2.png")
+        self.sheet = pygame.image.load("image/ship2_vintage.png")
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
         self.image.blit(self.sheet, (0, 0), (self.size[0] * self.current_sprite,
@@ -174,7 +173,7 @@ class Explosion(pygame.sprite.Sprite):
         self.timeframe = timeframe  #tempo por frame
         self.current_sprite = current_sprite
         self.time_counter = 0
-        self.sheet = pygame.image.load("image/explosion.png")
+        self.sheet = pygame.image.load("image/explosion_vintage.png")
         self.image = pygame.Surface(self.size, pygame.SRCALPHA, 32).convert_alpha()
         self.sprites_num = self.sheet.get_width() // self.size[0]
 
@@ -253,10 +252,11 @@ class Game():
         game_writer = csv.writer(log_game)
         game_writer.writerow(["time", "risklevel", "score"])   
         playtime = 0 # tempo jogado por partida
-        second = 1   #contador de segundos (regressivo) 
+        second = 1
         penalty = False # estado de penalidade 
         penaltytime = 0 # contador de tempo da penalidade (3 segundos)
         total_score = 0
+        ##change_music("Title Theme.ogg")
         while True:
             milliseconds = clock.tick(FPS)  # milisegundos passados desde ultimo frame
             deltat = milliseconds/1000.0    # delta de tempo em segundos
@@ -276,22 +276,22 @@ class Game():
                         self.spaceship.set_move_func(playtime, 1)
                     if  event.key == K_RETURN or event.key == K_KP_ENTER:
                         if self.game_mode == 0:
-                            self.game_mode += 1    
+                            self.game_mode += 1
                             playtime = 0
-
+                                      
         #-----------------------------------------------------------------------
         # GERENCIA OS MODOS DE JOGO
         # 0 modo inicial; 1 preparacao para o jogo; 2 rodando jogo; 3 game over
         #-----------------------------------------------------------------------
-            # MODO DE JOGO 0: Tela inicial
+            # MODO DE JOGO 0: tela inicial
             if self.game_mode == 0:
                 self.manage_background(screen, deltat)
                 screen.blit(logo, (WIDTH/2 - logo.get_width()/2 + 30 , 300))
                 text = large_font.render("Pressione [ENTER]", True, WHITE)
                 screen.blit(text, (WIDTH/2 - text.get_width()/2, HEIGHT/2 + 200))
                 playtime += deltat
-        
-             # MODO DE JOGO 1: Contagem regressiva
+            
+            # MODO DE JOGO 1: Contagem regressiva
             if self.game_mode == 1:
                 self.manage_background(screen, 0)
                 self.spaceship.draw(screen, DEBUG)
@@ -308,8 +308,7 @@ class Game():
                 playtime += deltat
                 second += deltat
                 
-                    
-            # MODO DE JOGO 2: TUTORIAL
+            # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 2:
                 self.manage_background(screen, deltat)
@@ -362,7 +361,7 @@ class Game():
                     play_sound("Well Done.ogg", 0)
                 playtime += deltat
                 
-            #MODO 3: mostra pontuacao total e agradecimento
+            #MODO : mostra pontuacao total e agradecimento
             if self.game_mode == 3:
                 if playtime < 5:
                     text = large_font.render("Pontuacao", True, WHITE)
