@@ -8,7 +8,7 @@
 # Copyright:   (c) Gabriel 2014
 # Licence:     <your licence>
 #-------------------------------------------------------------------------------
-
+import os
 import sys
 import random
 import math
@@ -22,8 +22,8 @@ WIDTH = 1200
 HEIGHT = 850
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-FPS = 40 # maximo frames por segundo
-SPEED = -200
+FPS = 50 # maximo frames por segundo
+SPEED = -300
 # cria o clock
 clock = pygame.time.Clock()
 
@@ -207,6 +207,11 @@ class Game():
         self.background_pos = 0
         self.zone_dim = (8, 8)
         self.rows = 2
+        try:
+            directory = "experiments"
+            os.mkdir(directory)
+        except:
+            pass
         # TODO: colocar as inicializacoes da tela e outras constantes
     
     # adiciona e remove zonas    
@@ -285,7 +290,7 @@ class Game():
         #-----------------------------------------------------------------------
             # MODO DE JOGO 0: tela inicial
             if self.game_mode == 0:
-                self.manage_background(screen, deltat)
+              ##  self.manage_background(screen, deltat)
                 screen.blit(logo, (WIDTH/2 - logo.get_width()/2 + 30 , 300))
                 text = large_font.render("Pressione [ENTER]", True, WHITE)
                 screen.blit(text, (WIDTH/2 - text.get_width()/2, HEIGHT/2 + 200))
@@ -293,7 +298,7 @@ class Game():
             
             # MODO DE JOGO 1: Contagem regressiva
             if self.game_mode == 1:
-                self.manage_background(screen, 0)
+              ##  self.manage_background(screen, 0)
                 self.spaceship.draw(screen, DEBUG)
                 pygame.draw.circle(screen, WHITE,(WIDTH/2, HEIGHT/2-35), 40, 2)
                 if  second >= 1:
@@ -311,7 +316,7 @@ class Game():
             # MODO DE JOGO 1: TUTORIAL
             #TODO: COLOCAR FUNcao para modular a velocidade ou densidade
             if self.game_mode == 2:
-                self.manage_background(screen, deltat)
+               ## self.manage_background(screen, deltat)
                 screen.blit(info_bar, (0, HEIGHT - 50))
                 self.spaceship.draw(screen, DEBUG)
                 self.spaceship.update(playtime)
@@ -326,6 +331,8 @@ class Game():
                 text = small_font.render("time: {}".format(160 - int(playtime)), 
                                          True, WHITE)
                 screen.blit(text, (WIDTH/2 - text.get_width(), HEIGHT - 30))
+                text = small_font.render("FPS: "+ str(int(clock.get_fps())), True, WHITE)
+                screen.blit(text, (WIDTH - 2* text.get_width(), HEIGHT - 30))
                 self.manage_zones(playtime)
                 current_zone = self.detect_zone()
                 score = 0
